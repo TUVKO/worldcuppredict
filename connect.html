@@ -2334,6 +2334,7 @@ function adminLogout() {
   if (withdrawalsUnsubscribe) withdrawalsUnsubscribe();
   if (adminTxUnsubscribe) adminTxUnsubscribe();
   stopNotificationCleanup();
+  stopTransactionCleanup();
   document.getElementById('admin-wrap').classList.remove('active');
   document.getElementById('auth-wrap').style.display = 'flex';
   document.getElementById('login-username').value = '';
@@ -3333,11 +3334,74 @@ function stopNotificationCleanup() {
   }
 }
 
+// ============================================================
+// AUTO-DELETE OLD TRANSACTIONS (Older than 6 hours)
+// ============================================================
+async function autoDeleteOldTransactions() {
+  try {
+    const db = firebase.database();
+    const snap = await db.ref('adminTransactions').get();
+    
+    if (!snap.exists()) return;
+    
+    const transactions = snap.val();
+    const now = Date.now();
+    const sixHoursMs = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+    const deletedCount = [];
+    
+    Object.entries(transactions).forEach(([key, tx]) => {
+      // Parse date string to get timestamp
+      // Try to extract timestamp from key (format: dep_123456789 or withdraw_123456789)
+      const keyParts = key.split('_');
+      const txTime = keyParts.length > 1 ? parseInt(keyParts[keyParts.length - 1]) : 0;
+      const ageMs = now - txTime;
+      
+      // Delete if older than 6 hours
+      if (ageMs > sixHoursMs) {
+        db.ref('adminTransactions/' + key).remove().catch(err => {
+          console.error('Error deleting transaction:', err);
+        });
+        deletedCount.push(key);
+      }
+    });
+    
+    if (deletedCount.length > 0) {
+      console.log('🗑️ Auto-deleted ' + deletedCount.length + ' old transactions (6+ hours)');
+    }
+    
+  } catch (error) {
+    console.error('Error in autoDeleteOldTransactions:', error);
+  }
+}
+
+// Set up auto-cleanup every 30 minutes
+let transactionCleanupInterval = null;
+
+function startTransactionCleanup() {
+  if (transactionCleanupInterval) clearInterval(transactionCleanupInterval);
+  
+  // Run immediately
+  autoDeleteOldTransactions();
+  
+  // Then run every 30 minutes
+  transactionCleanupInterval = setInterval(autoDeleteOldTransactions, 30 * 60 * 1000);
+  console.log('✅ Transaction auto-cleanup started (every 30 minutes)');
+}
+
+function stopTransactionCleanup() {
+  if (transactionCleanupInterval) {
+    clearInterval(transactionCleanupInterval);
+    transactionCleanupInterval = null;
+    console.log('⏹️ Transaction auto-cleanup stopped');
+  }
+}
+
 function initAdmin() {
   const session = localStorage.getItem(SESSION_KEY);
   if (session === 'true') {
     showPanel();
     startNotificationCleanup();
+    startTransactionCleanup();
   } else {
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('auth-wrap').style.display = 'flex';
