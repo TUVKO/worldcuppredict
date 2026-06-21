@@ -832,6 +832,7 @@ input[type="password"]{padding-right:46px;}
     <div class="inner-header"><span style="font-size:22px">⚽</span><div><div class="inner-title">PREDICT</div><div class="inner-sub">Select a country and place your prediction</div></div></div>
     
     <div class="section">
+      <input type="text" id="team-search-input" placeholder="🔍 Search team name..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font-size:14px;margin-bottom:16px;box-sizing:border-box;" oninput="searchTeams(this.value)">
       <div class="team-grid" id="team-grid">
         <!-- Teams will be loaded here -->
       </div>
@@ -2201,6 +2202,79 @@ function closeTeamModal() {
 }
 
 // ============================================================
+// CASHOUT FUNCTIONS
+// ============================================================
+
+// Cashout Confirmation Modal
+function confirmCashout(betId, stakeAmount) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;padding:24px;width:90%;max-width:400px;border:1px solid var(--border);">
+      <div style="font-size:18px;font-weight:700;margin-bottom:16px;color:var(--text);">💰 Confirm Cashout</div>
+      <div style="margin-bottom:20px;font-size:14px;color:var(--text);">
+        <div style="margin-bottom:12px;">You will receive your stake amount as refund:</div>
+        <div style="font-size:20px;font-weight:700;color:#10b981;">UGX ${fmt(stakeAmount)}</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:8px;font-weight:700;cursor:pointer;" onclick="closeCashoutModal()">Cancel</button>
+        <button style="flex:1;background:#10b981;border:none;color:white;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;" onclick="processCashout('${betId}', ${stakeAmount})">Confirm Cashout</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  window.cashoutModal = modal;
+}
+
+function closeCashoutModal() {
+  if (window.cashoutModal) {
+    window.cashoutModal.remove();
+    window.cashoutModal = null;
+  }
+}
+
+async function processCashout(betId, stakeAmount) {
+  try {
+    closeCashoutModal();
+    
+    const db = firebase.database();
+    const currentStake = currentUser.stake || 0;
+    const newStake = currentStake + stakeAmount;
+    
+    // Create transaction for cashout
+    const txKey = 'tx_cashout_' + Date.now();
+    const txRecord = {
+      type: 'Cashout',
+      amount: stakeAmount,
+      note: 'Bet cashout - Refund to wallet',
+      date: dateStr(),
+      status: 'completed'
+    };
+    
+    // Update prediction status to 'cashout' and refund stake
+    const updates = {
+      stake: newStake,
+      [`predictions/${betId}/status`]: 'cashout',
+      [`transactions/${txKey}`]: txRecord
+    };
+    
+    await db.ref('users/' + safeKey(currentUsername)).update(updates);
+    
+    // Update local user object
+    currentUser.stake = newStake;
+    updateBalanceUI();
+    renderPendingBets();
+    renderLostBets();
+    
+    showToast('Cashout successful! UGX ' + fmt(stakeAmount) + ' refunded to wallet', 'success');
+    
+  } catch (error) {
+    console.error('Error processing cashout:', error);
+    showToast('Cashout failed. Please try again.', 'error');
+  }
+}
+
+// ============================================================
 // WHATSAPP FLOATING BUTTON FUNCTIONS
 // ============================================================
 let isDraggingWhatsApp = false;
@@ -3523,12 +3597,29 @@ async function initializeTeamsInFirebase() {
   }
 }
 
-function renderTeamGrid() {
+// ============================================================
+// TEAM SEARCH FUNCTION
+// ============================================================
+function searchTeams(query) {
+  renderTeamGrid(query);
+}
+
+function renderTeamGrid(searchQuery = '') {
   const grid = document.getElementById('team-grid');
   if (!grid) return;
   
+  // Filter teams by search query
+  let filteredTeams = teams;
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase();
+    filteredTeams = teams.filter(team => 
+      team.name.toLowerCase().includes(query) ||
+      team.flag.includes(query)
+    );
+  }
+  
   // Sort teams: active teams first, grayed out (locked/out) teams at bottom
-  const sortedTeams = [...teams].sort((a, b) => {
+  const sortedTeams = [...filteredTeams].sort((a, b) => {
     const aIsActive = !a.locked && !a.out;
     const bIsActive = !b.locked && !b.out;
     
@@ -3539,6 +3630,11 @@ function renderTeamGrid() {
     // If both active or both inactive, keep original order
     return 0;
   });
+  
+  if (sortedTeams.length === 0) {
+    grid.innerHTML = '<div class="slip-empty" style="grid-column:1/-1;">No teams found</div>';
+    return;
+  }
   
   grid.innerHTML = sortedTeams.map(team => {
     let statusIcon = '';
@@ -3622,6 +3718,12 @@ function backToPredictTeams() {
   document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-team').classList.add('active');
   currentPrediction = null;
+  // Clear search input
+  const searchInput = document.getElementById('team-search-input');
+  if (searchInput) {
+    searchInput.value = '';
+    renderTeamGrid('');
+  }
 }
 
 function calculateWinnings() {
@@ -3659,6 +3761,7 @@ async function placeBet() {
     stake: stakeVal,
     potentialWin: Math.floor(stakeVal * currentPrediction.odds),
     date: dateStr(),
+    timestamp: Date.now(),
     status: 'pending'
   };
   
@@ -3685,6 +3788,7 @@ async function placeBet() {
         stake: betObj.stake,
         potentialWin: betObj.potentialWin,
         date: betObj.date,
+        timestamp: betObj.timestamp,
         status: betObj.status
       },
       [`transactions/${txKey}`]: txRecord
@@ -3842,12 +3946,26 @@ function renderPendingBets() {
   }
   
   const betsHtml = [];
+  const now = Date.now();
+  const twelveHoursMs = 12 * 60 * 60 * 1000;
   
-  Object.values(currentUser.predictions).forEach(bet => {
+  Object.entries(currentUser.predictions).forEach(([betId, bet]) => {
     // Show bets with status 'placed' or 'pending'
     if (bet.status !== 'placed' && bet.status !== 'pending') return;
     
     const flag = teams.find(t => t.name === bet.team)?.flag || '⚽';
+    const betTime = bet.timestamp || 0;
+    const ageMs = now - betTime;
+    const canCashout = ageMs < twelveHoursMs;
+    
+    // Format date and time
+    const betDate = new Date(betTime);
+    const dateStr = betDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = betDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    
+    const cashoutBtn = canCashout 
+      ? `<button style="background:#10b981;border:none;color:white;padding:8px 12px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;margin-top:8px;" onclick="confirmCashout('${betId}', ${bet.stake})">💰 Cashout</button>`
+      : `<div style="background:var(--surface3);color:var(--muted);padding:8px 12px;border-radius:6px;font-weight:600;font-size:12px;margin-top:8px;text-align:center;">⏱️ Cashout Locked (12+ hours)</div>`;
     
     betsHtml.push(`
       <div class="bet-item">
@@ -3855,7 +3973,9 @@ function renderPendingBets() {
           <div class="bet-team">${flag} ${bet.team} | Odds: ${bet.odds.toFixed(2)} | PENDING</div>
           <div class="bet-stake">Stake: ${fmt(bet.stake)} UGX</div>
           <div class="bet-win">Potential Win: ${fmt(bet.potentialWin)} UGX</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">📅 ${dateStr} | 🕐 ${timeStr}</div>
           <div class="bet-status">WAITING</div>
+          ${cashoutBtn}
         </div>
       </div>
     `);
@@ -3878,19 +3998,28 @@ function renderLostBets() {
   
   const betsHtml = [];
   
-  Object.values(currentUser.predictions).forEach(bet => {
-    // Only show bets with status 'lost'
-    if (bet.status !== 'lost') return;
+  Object.entries(currentUser.predictions).forEach(([betId, bet]) => {
+    // Show bets with status 'lost' or 'cashout'
+    if (bet.status !== 'lost' && bet.status !== 'cashout') return;
     
-    const flag = teams.find(t => t.name === bet.team)?.flag || 'Flag';
+    const flag = teams.find(t => t.name === bet.team)?.flag || '⚽';
+    const betTime = bet.timestamp || 0;
+    const betDate = new Date(betTime);
+    const dateStr = betDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = betDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    
+    const statusDisplay = bet.status === 'cashout' 
+      ? '<div class="bet-status" style="background:#f59e0b;color:white;">CASHOUT</div>'
+      : '<div class="bet-status" style="background:#ef4444;color:white;">LOST</div>';
     
     betsHtml.push(`
       <div class="bet-item">
         <div class="bet-item-info">
-          <div class="bet-team">${flag} ${bet.team} | Odds: ${bet.odds.toFixed(2)} | LOST</div>
+          <div class="bet-team">${flag} ${bet.team} | Odds: ${bet.odds.toFixed(2)} | ${bet.status === 'cashout' ? 'CASHOUT' : 'LOST'}</div>
           <div class="bet-stake">Stake: ${fmt(bet.stake)} UGX</div>
           <div class="bet-win">Potential Win: ${fmt(bet.potentialWin)} UGX</div>
-          <div class="bet-status">LOST</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">📅 ${dateStr} | 🕐 ${timeStr}</div>
+          ${statusDisplay}
         </div>
       </div>
     `);
