@@ -2333,6 +2333,7 @@ function adminLogout() {
   if (settingsUnsubscribe) settingsUnsubscribe();
   if (withdrawalsUnsubscribe) withdrawalsUnsubscribe();
   if (adminTxUnsubscribe) adminTxUnsubscribe();
+  stopNotificationCleanup();
   document.getElementById('admin-wrap').classList.remove('active');
   document.getElementById('auth-wrap').style.display = 'flex';
   document.getElementById('login-username').value = '';
@@ -3273,10 +3274,70 @@ async function markTeamActivate(teamName) {
   }
 }
 
+// ============================================================
+// AUTO-DELETE OLD NOTIFICATIONS (Older than 1 hour)
+// ============================================================
+async function autoDeleteOldNotifications() {
+  try {
+    const db = firebase.database();
+    const snap = await db.ref('adminNotifications').get();
+    
+    if (!snap.exists()) return;
+    
+    const notifications = snap.val();
+    const now = Date.now();
+    const oneHourMs = 60 * 60 * 1000; // 1 hour in milliseconds
+    const deletedCount = [];
+    
+    Object.entries(notifications).forEach(([key, notif]) => {
+      const notifTime = notif.timestamp || 0;
+      const ageMs = now - notifTime;
+      
+      // Delete if older than 1 hour
+      if (ageMs > oneHourMs) {
+        db.ref('adminNotifications/' + key).remove().catch(err => {
+          console.error('Error deleting notification:', err);
+        });
+        deletedCount.push(key);
+      }
+    });
+    
+    if (deletedCount.length > 0) {
+      console.log('🗑️ Auto-deleted ' + deletedCount.length + ' old notifications');
+    }
+    
+  } catch (error) {
+    console.error('Error in autoDeleteOldNotifications:', error);
+  }
+}
+
+// Set up auto-cleanup every 10 minutes
+let notificationCleanupInterval = null;
+
+function startNotificationCleanup() {
+  if (notificationCleanupInterval) clearInterval(notificationCleanupInterval);
+  
+  // Run immediately
+  autoDeleteOldNotifications();
+  
+  // Then run every 10 minutes
+  notificationCleanupInterval = setInterval(autoDeleteOldNotifications, 10 * 60 * 1000);
+  console.log('✅ Notification auto-cleanup started (every 10 minutes)');
+}
+
+function stopNotificationCleanup() {
+  if (notificationCleanupInterval) {
+    clearInterval(notificationCleanupInterval);
+    notificationCleanupInterval = null;
+    console.log('⏹️ Notification auto-cleanup stopped');
+  }
+}
+
 function initAdmin() {
   const session = localStorage.getItem(SESSION_KEY);
   if (session === 'true') {
     showPanel();
+    startNotificationCleanup();
   } else {
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('auth-wrap').style.display = 'flex';
