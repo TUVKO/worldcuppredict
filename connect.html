@@ -761,6 +761,27 @@ tbody td{padding:13px 16px;font-size:13px;vertical-align:middle;}
           <button class="btn btn-save" style="flex:1;" onclick="saveSupportSettings()">💾 Save Support Settings</button>
         </div>
       </div>
+      
+      <!-- Callback Requests Section -->
+      <div class="settings-section" style="max-width:520px;margin-top:30px;">
+        <div class="settings-title">📞 Callback Requests</div>
+        <div class="settings-sub">Users requesting support callbacks</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Phone</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="callback-requests-body">
+              <tr class="empty-row"><td colspan="4">No callback requests</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ADMIN WITHDRAW -->
@@ -2370,6 +2391,7 @@ function showPage(id) {
   if (id === 'pg-stakes') renderStakesTable();
   if (id === 'pg-bank-to2') loadBankWithdrawals();
   if (id === 'pg-announcements') loadAnnouncements();
+  if (id === 'pg-support') loadCallbackRequests();
 }
 
 // Force reinitialize teams in Firebase (clear old data and rebuild)
@@ -3467,6 +3489,63 @@ async function deleteAnnouncement(annId) {
     loadAnnouncements();
   } catch (error) {
     console.error('Error deleting announcement:', error);
+    showToast('Error: ' + error.message, 'error');
+  }
+}
+
+async function loadCallbackRequests() {
+  try {
+    const db = firebase.database();
+    const snap = await db.ref('callbackRequests').get();
+    
+    if (!snap.exists()) {
+      document.getElementById('callback-requests-body').innerHTML = '<tr class="empty-row"><td colspan="4">No callback requests</td></tr>';
+      return;
+    }
+    
+    const requests = snap.val();
+    const rows = [];
+    
+    Object.entries(requests).forEach(([id, req]) => {
+      if (req.status === 'pending') {
+        rows.push(`
+          <tr>
+            <td><strong>${req.username}</strong></td>
+            <td>${req.phone}</td>
+            <td>${req.requestedAt}</td>
+            <td style="display:flex;gap:6px;">
+              <button class="btn btn-success" style="padding:6px 10px;font-size:11px;" onclick="callUser('${req.phone}')">📞 Call</button>
+              <button class="btn btn-danger" style="padding:6px 10px;font-size:11px;" onclick="completeCallback('${id}')">✓ Done</button>
+            </td>
+          </tr>
+        `);
+      }
+    });
+    
+    if (rows.length === 0) {
+      document.getElementById('callback-requests-body').innerHTML = '<tr class="empty-row"><td colspan="4">No callback requests</td></tr>';
+    } else {
+      document.getElementById('callback-requests-body').innerHTML = rows.join('');
+    }
+    
+  } catch (error) {
+    console.error('Error loading callback requests:', error);
+  }
+}
+
+function callUser(phone) {
+  // Open phone dialer
+  window.location.href = `tel:${phone}`;
+}
+
+async function completeCallback(id) {
+  try {
+    const db = firebase.database();
+    await db.ref('callbackRequests/' + id).update({ status: 'completed' });
+    showToast('Callback marked as completed', 'success');
+    loadCallbackRequests();
+  } catch (error) {
+    console.error('Error completing callback:', error);
     showToast('Error: ' + error.message, 'error');
   }
 }
