@@ -298,6 +298,10 @@ input[type="password"]{padding-right:46px;}
 .floating-team-btn{position:fixed;bottom:90px;right:20px;width:56px;height:56px;background:linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;z-index:150;box-shadow:0 4px 12px rgba(59, 130, 246, 0.4);transition:all 0.3s;color:#fff;}
 .floating-team-btn:active{transform:scale(0.95);}
 .floating-team-btn:hover{transform:scale(1.1);box-shadow:0 6px 16px rgba(59, 130, 246, 0.6);}
+
+.floating-whatsapp-btn{position:fixed;top:100px;right:20px;width:56px;height:56px;background:linear-gradient(135deg, #25d366 0%, #1fa452 100%);border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:grab;z-index:150;box-shadow:0 4px 12px rgba(37, 211, 102, 0.4);transition:all 0.3s;color:#fff;touch-action:none;}
+.floating-whatsapp-btn:active{transform:scale(0.95);cursor:grabbing;}
+.floating-whatsapp-btn:hover{transform:scale(1.1);box-shadow:0 6px 16px rgba(37, 211, 102, 0.6);}
 .team-badge{position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid var(--bg);}
 
 /* Team Modal */
@@ -1222,7 +1226,7 @@ input[type="password"]{padding-right:46px;}
   </div>
 
 <!-- REQUEST CALLBACK MODAL -->
-<div id="callback-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+<div id="callback-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
   <div style="background:var(--surface);border-radius:16px;padding:24px;width:90%;max-width:400px;border:1px solid var(--border);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <div style="font-size:18px;font-weight:700;">📞 Request Callback</div>
@@ -1965,6 +1969,7 @@ function showDashboard() {
   document.querySelectorAll('.auth-page').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
   document.getElementById('dashboard-page').style.display = 'block';
   document.getElementById('dashboard-page').classList.add('active');
+  showWhatsAppIcon();
 }
 
 function openMenu() {
@@ -2193,6 +2198,81 @@ function openTeamModal() {
 
 function closeTeamModal() {
   document.getElementById('team-modal-overlay').classList.remove('active');
+}
+
+// ============================================================
+// WHATSAPP FLOATING BUTTON FUNCTIONS
+// ============================================================
+let isDraggingWhatsApp = false;
+let offsetX = 0;
+let offsetY = 0;
+
+function startDragWhatsApp(e) {
+  const btn = document.getElementById('floating-whatsapp');
+  if (e.type === 'mousedown' && e.button !== 0) return; // Only left mouse button
+  
+  isDraggingWhatsApp = true;
+  const rect = btn.getBoundingClientRect();
+  offsetX = e.clientX - rect.left;
+  offsetY = e.clientY - rect.top;
+  
+  document.addEventListener('mousemove', dragWhatsApp);
+  document.addEventListener('touchmove', dragWhatsApp);
+  document.addEventListener('mouseup', stopDragWhatsApp);
+  document.addEventListener('touchend', stopDragWhatsApp);
+}
+
+function dragWhatsApp(e) {
+  if (!isDraggingWhatsApp) return;
+  
+  const btn = document.getElementById('floating-whatsapp');
+  const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+  const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+  
+  const x = clientX - offsetX;
+  const y = clientY - offsetY;
+  
+  // Constrain to viewport
+  const maxX = window.innerWidth - 56;
+  const maxY = window.innerHeight - 56;
+  
+  btn.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+  btn.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+  btn.style.right = 'auto';
+  btn.style.bottom = 'auto';
+}
+
+function stopDragWhatsApp() {
+  isDraggingWhatsApp = false;
+  document.removeEventListener('mousemove', dragWhatsApp);
+  document.removeEventListener('touchmove', dragWhatsApp);
+  document.removeEventListener('mouseup', stopDragWhatsApp);
+  document.removeEventListener('touchend', stopDragWhatsApp);
+}
+
+function openWhatsAppGroup() {
+  const link = settingsData?.supportWhatsAppGroup || '';
+  if (!link) {
+    showToast('WhatsApp group link not configured', 'warning');
+    return;
+  }
+  window.open(link, '_blank');
+}
+
+function showWhatsAppIcon() {
+  const btn = document.getElementById('floating-whatsapp');
+  if (btn && settingsData?.supportWhatsAppGroup) {
+    btn.style.display = 'flex';
+    // Add click handler
+    btn.onclick = openWhatsAppGroup;
+  }
+}
+
+function hideWhatsAppIcon() {
+  const btn = document.getElementById('floating-whatsapp');
+  if (btn) {
+    btn.style.display = 'none';
+  }
 }
 
 // Close modal when clicking outside
@@ -4387,6 +4467,11 @@ renderFlagsMarquee();
   <div style="margin-top:12px;color:#ef4444;">You have to be <strong>25 years and above</strong> to bet.</div>
   <div style="margin-top:8px;color:#ef4444;"><strong>Betting is addictive and can be psychologically harmful.</strong></div>
 </div>
+
+<!-- Floating WhatsApp Icon -->
+<button class="floating-whatsapp-btn" id="floating-whatsapp" style="display:none;" title="Join WhatsApp Group" onmousedown="startDragWhatsApp(event)" ontouchstart="startDragWhatsApp(event)">
+  💬
+</button>
 
 <!-- Floating Team Icon -->
 <button class="floating-team-btn" onclick="openTeamModal()" title="Your Team">

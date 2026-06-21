@@ -757,6 +757,11 @@ tbody td{padding:13px 16px;font-size:13px;vertical-align:middle;}
           <input type="tel" class="settings-input" id="support-phone-input" placeholder="+256700000000">
         </div>
         
+        <div class="settings-row">
+          <label class="settings-label">WhatsApp Group Link</label>
+          <input type="text" class="settings-input" id="support-whatsapp-group-input" placeholder="https://chat.whatsapp.com/xxxxx">
+        </div>
+        
         <div style="display:flex;gap:10px;margin-top:20px;">
           <button class="btn btn-save" style="flex:1;" onclick="saveSupportSettings()">💾 Save Support Settings</button>
         </div>
@@ -1873,8 +1878,9 @@ async function saveSupportSettings() {
   const email = document.getElementById('support-email-input').value.trim();
   const zangi = document.getElementById('support-zangi-input').value.trim();
   const phone = document.getElementById('support-phone-input').value.trim();
+  const whatsappGroup = document.getElementById('support-whatsapp-group-input').value.trim();
   
-  if (!telegram && !whatsapp && !email && !zangi && !phone) {
+  if (!telegram && !whatsapp && !email && !zangi && !phone && !whatsappGroup) {
     toast('Please enter at least one support channel', '#f87171');
     return;
   }
@@ -1885,6 +1891,7 @@ async function saveSupportSettings() {
     await db.ref('settings/supportEmail').set(email);
     await db.ref('settings/supportZangi').set(zangi);
     await db.ref('settings/supportPhone').set(phone);
+    await db.ref('settings/supportWhatsAppGroup').set(whatsappGroup);
     
     toast('✅ Support channels saved successfully!');
   } catch (err) {
@@ -1908,6 +1915,9 @@ function loadSupportSettingsUI() {
   
   const phoneInp = document.getElementById('support-phone-input');
   if (phoneInp) phoneInp.value = s.supportPhone || '';
+  
+  const whatsappGroupInp = document.getElementById('support-whatsapp-group-input');
+  if (whatsappGroupInp) whatsappGroupInp.value = s.supportWhatsAppGroup || '';
 }
 
 async function saveUraTax() {
