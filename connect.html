@@ -689,6 +689,20 @@ tbody td{padding:13px 16px;font-size:13px;vertical-align:middle;}
         <div class="settings-row"><span class="settings-label">Withdrawal Service Charge (%)</span><div style="display:flex;align-items:center;gap:8px;"><input type="number" class="pct-input" id="with-charge-input" min="0" max="50" step="0.5" placeholder="10"><span class="pct-label">%</span></div><button class="btn btn-save" onclick="saveWithCharge()">Save</button></div>
       </div>
 
+      <!-- Referral Bonus Settings -->
+      <div class="settings-section">
+        <div class="settings-title">💝 Referral Bonus Settings</div>
+        <div class="settings-sub">Percentage bonus users earn on each prediction from their referrals</div>
+        <div class="settings-row">
+          <span class="settings-label">Referral Bonus Percentage</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" class="pct-input" id="referral-bonus-input" min="0" max="100" step="0.5" placeholder="18">
+            <span class="pct-label">%</span>
+          </div>
+          <button class="btn btn-save" onclick="saveReferralBonus()">Save</button>
+        </div>
+      </div>
+
 
 
       <!-- Withdrawal Approval Toggle -->
@@ -1832,6 +1846,9 @@ function loadSettingsUI() {
     approvalStatus.textContent = s.withdrawApproval ? 'Manual Approval ON' : '⚡ Automatic';
     approvalStatus.style.color = s.withdrawApproval ? 'var(--gold)' : 'var(--success)';
   }
+  
+  const refBonusInp = document.getElementById('referral-bonus-input');
+  if (refBonusInp) refBonusInp.value = s.referralBonusPercent || 18;
 }
 
 function toggleApiKeyVis() {
@@ -1955,6 +1972,11 @@ async function saveWithCharge() {
   toast('Withdrawal charge updated to ' + v + '%');
 }
 
+async function saveReferralBonus() {
+  const v = parseFloat(document.getElementById('referral-bonus-input').value) || 18;
+  await db.ref('settings/referralBonusPercent').set(v);
+  toast('Referral bonus updated to ' + v + '%');
+}
 
 
 async function lockWithdrawals(lock) {

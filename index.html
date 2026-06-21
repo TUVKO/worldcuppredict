@@ -941,6 +941,15 @@ input[type="password"]{padding-right:46px;}
         <div style="font-size:14px;color:var(--muted);margin-bottom:16px;font-weight:700;">Your Referral Code</div>
         <div id="referral-code-display" style="font-size:24px;font-weight:900;color:var(--accent);letter-spacing:2px;margin-bottom:24px;font-family:'JetBrains Mono',monospace;">ABC12XYZ</div>
         
+        <div style="background:linear-gradient(135deg, var(--surface2) 0%, var(--surface3) 100%);border:2px solid var(--accent);border-radius:12px;padding:16px;margin-bottom:20px;">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">💰 Earn While They Play!</div>
+          <div style="font-size:18px;font-weight:900;color:#10b981;margin-bottom:8px;" id="referral-bonus-display">18%</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">
+            Share your code → Friends predict → You earn bonuses!<br>
+            Withdraw anytime. No limits. No BS.
+          </div>
+        </div>
+        
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;display:inline-block;">
           <div id="qr-code-container" style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;">
             <div style="font-size:12px;color:var(--muted);">Generating QR code...</div>
@@ -1971,6 +1980,7 @@ function showDashboard() {
   document.getElementById('dashboard-page').style.display = 'block';
   document.getElementById('dashboard-page').classList.add('active');
   showWhatsAppIcon();
+  watchReferralBonus();
 }
 
 function openMenu() {
@@ -3815,9 +3825,13 @@ async function placeBet() {
   }
 }
 
-// Process referral bonus silently - 6% of staked amount goes to referrer's wallet
+// Process referral bonus silently - uses configurable % from settings
 async function processReferralBonus(stakeAmount, betterUsername) {
   try {
+    // Get referral bonus percentage from settings (default 18%)
+    const settingsSnap = await db.ref('settings/referralBonusPercent').get();
+    const bonusPercent = (settingsSnap.exists() ? settingsSnap.val() : 18) / 100;
+    
     // Get the user who placed the bet
     const betterSnap = await db.ref('users/' + safeKey(betterUsername)).get();
     if (!betterSnap.exists()) {
@@ -3861,9 +3875,9 @@ async function processReferralBonus(stakeAmount, betterUsername) {
       return;
     }
     
-    // Calculate 6% bonus
-    const bonus = Math.floor(stakeAmount * 0.06);
-    console.log('Referral bonus: Calculating 6% of', stakeAmount, '=', bonus);
+    // Calculate bonus using settings percentage
+    const bonus = Math.floor(stakeAmount * bonusPercent);
+    console.log('Referral bonus: Calculating ' + (bonusPercent * 100) + '% of', stakeAmount, '=', bonus);
     
     // If bonus is 0 or less, don't process
     if (bonus <= 0) {
@@ -4093,6 +4107,9 @@ function updateReferralDisplay() {
   const code = currentUser.referralCode;
   document.getElementById('referral-code-display').textContent = code;
   
+  // Load and display referral bonus percentage
+  loadReferralBonusDisplay();
+  
   // Generate referral URL
   const referralUrl = `https://worldcupbets.online?ref=${code}`;
   
@@ -4101,6 +4118,35 @@ function updateReferralDisplay() {
   
   const qrContainer = document.getElementById('qr-code-container');
   qrContainer.innerHTML = `<img src="${qrApiUrl}" alt="QR Code" style="width:200px;height:200px;border-radius:8px;" />`;
+}
+
+// Load and display referral bonus percentage from settings
+async function loadReferralBonusDisplay() {
+  try {
+    const snap = await db.ref('settings/referralBonusPercent').get();
+    const bonusPercent = snap.exists() ? snap.val() : 18;
+    const bonusEl = document.getElementById('referral-bonus-display');
+    if (bonusEl) {
+      bonusEl.textContent = bonusPercent + '%';
+    }
+  } catch (error) {
+    console.error('Error loading referral bonus:', error);
+  }
+}
+
+// Listen for real-time updates to referral bonus %
+function watchReferralBonus() {
+  try {
+    db.ref('settings/referralBonusPercent').on('value', (snap) => {
+      const bonusPercent = snap.exists() ? snap.val() : 18;
+      const bonusEl = document.getElementById('referral-bonus-display');
+      if (bonusEl) {
+        bonusEl.textContent = bonusPercent + '%';
+      }
+    });
+  } catch (error) {
+    console.error('Error watching referral bonus:', error);
+  }
 }
 
 // Share referral code
