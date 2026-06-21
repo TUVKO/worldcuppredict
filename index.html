@@ -2967,10 +2967,6 @@ async function doWithdraw() {
     showToast('Withdrawals are currently locked', 'warning');
     return; 
   }
-  if (!currentUser.activated) { 
-    showToast('Your account is not activated. Contact support.', 'warning');
-    return; 
-  }
   
   const minWith = settingsData.minWithdraw || 10000;
   const amount = parseInt(document.getElementById('with-amount').value) || 0;
@@ -2981,7 +2977,7 @@ async function doWithdraw() {
   
   const stake = currentUser.stake || 0;
   if (stake < amount) { 
-    setErr('with-amount-err', true, 'Insufficient Wallet. You have ' + fmt(stake)); 
+    setErr('with-amount-err', true, 'Insufficient Balance. You have ' + fmt(stake)); 
     return; 
   }
   
@@ -3064,14 +3060,10 @@ async function doBankWithdraw() {
     showToast('Withdrawals are currently locked', 'warning');
     return; 
   }
-  if (!currentUser.activated) { 
-    showToast('Your account is not activated. Contact support.', 'warning');
-    return; 
-  }
   
   const stake = currentUser.stake || 0;
   if (stake < amount) { 
-    document.getElementById('bank-amount-err').textContent = 'Insufficient Wallet. You have ' + fmt(stake); 
+    document.getElementById('bank-amount-err').textContent = 'Insufficient Balance. You have ' + fmt(stake); 
     return; 
   }
   
