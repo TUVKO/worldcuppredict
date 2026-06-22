@@ -628,12 +628,6 @@ input[type="password"]{padding-right:46px;}
       <div class="field-error" id="reg-city-err">City/region is required</div>
     </div>
     
-    <!-- NIN/Passport (Optional) -->
-    <div class="field-group">
-      <label class="field-label">NIN/PASSPORT NUMBER <span style="font-size:12px;color:var(--muted);">(OPTIONAL)</span></label>
-      <div class="field-wrap"><span class="field-icon"></span><input type="text" id="reg-nin"></div>
-    </div>
-    
     <!-- Referral Code (Optional) -->
     <div class="field-group">
       <label class="field-label">REFERRAL CODE <span style="font-size:12px;color:var(--muted);">(OPTIONAL)</span></label>
@@ -3365,7 +3359,6 @@ async function doRegister() {
   const email = document.getElementById('reg-email').value.trim();
   const age = parseInt(document.getElementById('reg-age').value);
   const city = document.getElementById('reg-city').value.trim();
-  const nin = document.getElementById('reg-nin').value.trim();
   const referral = document.getElementById('reg-referral').value.trim();
   const password = document.getElementById('reg-password').value;
   const confirm = document.getElementById('reg-confirm').value;
@@ -3433,7 +3426,6 @@ async function doRegister() {
   document.getElementById('reg-email').value = '';
   document.getElementById('reg-age').value = '';
   document.getElementById('reg-city').value = '';
-  document.getElementById('reg-nin').value = '';
   document.getElementById('reg-referral').value = '';
   document.getElementById('reg-password').value = '';
   document.getElementById('reg-confirm').value = '';
