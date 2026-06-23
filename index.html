@@ -3395,7 +3395,7 @@ async function doRegister() {
   
   // Create new user object with all fields
   const newUser = {
-    username, password, country, phone: fullPhone, email, fullName, age, city, nin, 
+    username, password, country, phone: fullPhone, email, fullName, age, city,
     referralCode: uniqueReferralCode,  // THEIR unique code (to share)
     referredBy: referral,               // Code they used to register (upline)
     stake: 1000, balance: 0, withdrawn: 0, agreedToTerms: true,
