@@ -846,9 +846,9 @@ input[type="password"]{padding-right:46px;}
         <div class="pred-odds-display">Odds: <span id="pred-odds">1.00</span></div>
       </div>
       <div class="pred-form">
-        <label class="pred-label">Bet Amount (Minimum 5000 UGX)</label>
+        <label class="pred-label">Bet Amount (Minimum <span id="min-stake-label">5000</span> UGX)</label>
         <input type="number" class="pred-input" id="pred-stake-input" placeholder="Enter bet amount" oninput="calculateWinnings()" min="5000">
-        <div class="pred-error" id="pred-stake-err">Minimum bet is 5000 UGX</div>
+        <div class="pred-error" id="pred-stake-err">Minimum bet is <span id="min-stake-err">5000</span> UGX</div>
         <div class="pred-calc">
           <div class="pred-calc-row">
             <span>Bet:</span>
@@ -1544,7 +1544,7 @@ let currentUsername = null;
 let settingsData = {
   uraTax: 4, withdrawCharge: 10, refL1: 10, refL2: 4, refL3: 2,
   withdrawLocked: false, withdrawApproval: false,
-  minDeposit: 10000, maxDeposit: 5000000, minWithdraw: 10000, waNumber: '700000000', marzApiKey: '',
+  minDeposit: 10000, maxDeposit: 5000000, minWithdraw: 10000, minStake: 5000, waNumber: '700000000', marzApiKey: '',
   supportTelegram: '', supportWhatsApp: '', supportEmail: '', supportZangi: '', supportPhone: ''
 };
 let profitInterval = null;
@@ -2518,10 +2518,15 @@ function updateUIWithSettings() {
   const minDep = settingsData.minDeposit || 10000;
   const minWith = settingsData.minWithdraw || 10000;
   const maxDep = settingsData.maxDeposit || 5000000;
+  const minStake = settingsData.minStake || 5000;
   const depNote = document.getElementById('dep-min-note');
   if (depNote) depNote.innerHTML = `Min dep ${minDep}, Max dep ${maxDep}`;
   const withMinDisplay = document.getElementById('with-min-display');
   if (withMinDisplay) withMinDisplay.textContent = fmt(minWith);
+  const minStakeLabel = document.getElementById('min-stake-label');
+  if (minStakeLabel) minStakeLabel.textContent = fmt(minStake);
+  const minStakeErr = document.getElementById('min-stake-err');
+  if (minStakeErr) minStakeErr.textContent = fmt(minStake);
   const withdrawLockedMsg = document.getElementById('withdraw-locked-msg');
   if (withdrawLockedMsg) withdrawLockedMsg.style.display = settingsData.withdrawLocked ? 'block' : 'none';
   const feePercent = document.getElementById('with-fee-percent');
@@ -3730,8 +3735,18 @@ function backToPredictTeams() {
 
 function calculateWinnings() {
   const stakeVal = parseInt(document.getElementById('pred-stake-input').value) || 0;
+  const minStake = settingsData.minStake || 5000;
   const odds = currentPrediction?.odds || 1;
   const winnings = Math.floor(stakeVal * odds);
+  
+  // Show/hide error message based on minimum stake
+  const errDiv = document.getElementById('pred-stake-err');
+  if (stakeVal > 0 && stakeVal < minStake) {
+    errDiv.textContent = 'Minimum bet is ' + fmt(minStake) + ' UGX';
+    errDiv.classList.add('show');
+  } else {
+    errDiv.classList.remove('show');
+  }
   
   document.getElementById('calc-stake').textContent = fmt(stakeVal);
   document.getElementById('calc-winning').textContent = fmt(winnings);
@@ -3739,8 +3754,9 @@ function calculateWinnings() {
 
 async function placeBet() {
   const stakeVal = parseInt(document.getElementById('pred-stake-input').value) || 0;
+  const minStake = settingsData.minStake || 5000;
   
-  if (stakeVal < 5000) {
+  if (stakeVal < minStake) {
     document.getElementById('pred-stake-err').classList.add('show');
     return;
   }

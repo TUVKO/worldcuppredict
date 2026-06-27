@@ -683,6 +683,7 @@ tbody td{padding:13px 16px;font-size:13px;vertical-align:middle;}
       <!-- Deposit & Withdrawal Settings -->
       <div class="settings-section">
         <div class="settings-title">💰 Deposit & Withdrawal Settings</div>
+        <div class="settings-row"><span class="settings-label">Minimum Stake (UGX)</span><div class="ugx-group"><span class="ugx-label">UGX</span><input type="number" class="ugx-input" id="min-stake-input" min="500" step="500" placeholder="5000"></div><button class="btn btn-save" onclick="saveMinStake()">Save</button></div>
         <div class="settings-row"><span class="settings-label">Minimum Deposit (UGX)</span><div class="ugx-group"><span class="ugx-label">UGX</span><input type="number" class="ugx-input" id="min-deposit-input" min="500" step="500" placeholder="10000"></div><button class="btn btn-save" onclick="saveMinDeposit()">Save</button></div>
         <div class="settings-row"><span class="settings-label">Maximum Deposit (UGX)</span><div class="ugx-group"><span class="ugx-label">UGX</span><input type="number" class="ugx-input" id="max-deposit-input" min="10000" step="1000" placeholder="2350000"></div><button class="btn btn-save" onclick="saveMaxDeposit()">Save</button></div>
         <div class="settings-row"><span class="settings-label">Minimum Withdrawal (UGX)</span><div class="ugx-group"><span class="ugx-label">UGX</span><input type="number" class="ugx-input" id="min-withdraw-input" min="500" step="500" placeholder="10000"></div><button class="btn btn-save" onclick="saveMinWithdraw()">Save</button></div>
@@ -1816,6 +1817,8 @@ function loadSettingsUI() {
   if (uraTaxInp) uraTaxInp.value = s.uraTax || 4;
   const withChargeInp = document.getElementById('with-charge-input');
   if (withChargeInp) withChargeInp.value = s.withdrawCharge || 10;
+  const minStakeInp = document.getElementById('min-stake-input');
+  if (minStakeInp) minStakeInp.value = s.minStake || 5000;
   const minDepInp = document.getElementById('min-deposit-input');
   if (minDepInp) minDepInp.value = s.minDeposit || 10000;
   const maxDepInp = document.getElementById('max-deposit-input');
@@ -1942,6 +1945,13 @@ async function saveUraTax() {
   if (v < 0) { toast('Tax cannot be negative', '#f87171'); return; }
   await db.ref('settings/uraTax').set(v);
   toast('URA Tax updated to ' + v + '%');
+}
+
+async function saveMinStake() {
+  const v = parseInt(document.getElementById('min-stake-input').value) || 5000;
+  if (v < 500) { toast('Min stake must be at least UGX 500', '#f87171'); return; }
+  await db.ref('settings/minStake').set(v);
+  toast('Minimum stake set to ' + fmt(v));
 }
 
 async function saveMinDeposit() {
@@ -3719,30 +3729,7 @@ initAdmin();
 <!-- PWA Service Worker Registration -->
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('data:application/javascript,' + encodeURIComponent(`
-    self.addEventListener('install', (event) => {
-      console.log('Admin Service Worker installing...');
-      self.skipWaiting();
-    });
-    
-    self.addEventListener('activate', (event) => {
-      console.log('Admin Service Worker activated');
-      event.waitUntil(clients.claim());
-    });
-    
-    self.addEventListener('fetch', (event) => {
-      if (event.request.method !== 'GET') return;
-      event.respondWith(
-        caches.match(event.request).then((response) => {
-          return response || fetch(event.request).then((response) => {
-            return response;
-          }).catch(() => {
-            return new Response('Offline - Please check your connection', { status: 503 });
-          });
-        })
-      );
-    });
-  `)).then((reg) => {
+  navigator.serviceWorker.register('/sw-admin.js').then((reg) => {
     console.log('✅ Admin Service Worker registered');
   }).catch((err) => {
     console.warn('Admin Service Worker registration failed:', err);
